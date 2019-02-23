@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <ctype.h>
 #include <sys/select.h>
 #include <sys/types.h>
@@ -153,6 +154,76 @@ hnd_get_time(coap_context_t  *ctx,
       coap_add_data(response, len, buf);
     }
   }
+}
+
+static void
+hnd_get_cycles(coap_context_t  *ctx,
+             struct coap_resource_t *resource,
+             const coap_endpoint_t *local_interface UNUSED_PARAM,
+             coap_address_t *peer,
+             coap_pdu_t *request,
+             str *token,
+             coap_pdu_t *response) {
+  coap_opt_iterator_t opt_iter;
+  coap_opt_t *option;
+  unsigned char buf[8];
+  size_t len = 8;
+  time_t now;
+  coap_tick_t t;
+  static uint64_t cycles_number = 0;
+  
+  response->hdr->code = COAP_RESPONSE_CODE(205);
+
+  coap_add_option(response,
+                    COAP_OPTION_CONTENT_FORMAT,
+                    coap_encode_var_bytes(buf, COAP_MEDIATYPE_APPLICATION_OCTET_STREAM), buf);
+
+    /* calculate current time */
+    coap_ticks(&t);
+    now = my_clock_base + (t / COAP_TICKS_PER_SECOND);
+    cycles_number++;
+    strncpy ((char *)buf, (char *)&cycles_number,len);
+    coap_add_data(response, len, buf);
+   
+}
+
+static double randfrom(double min, double max) {
+    double range = (max - min);
+    double div = RAND_MAX / range;
+    return min + (rand() / div);
+}
+
+static void
+hnd_get_temp(coap_context_t  *ctx,
+             struct coap_resource_t *resource,
+             const coap_endpoint_t *local_interface UNUSED_PARAM,
+             coap_address_t *peer,
+             coap_pdu_t *request,
+             str *token,
+             coap_pdu_t *response) {
+  coap_opt_iterator_t opt_iter;
+  coap_opt_t *option;
+  unsigned char buf[8];
+  size_t len = 8;
+  time_t now;
+  coap_tick_t t;
+  double temperature = 0.0;
+  
+  response->hdr->code = COAP_RESPONSE_CODE(205);
+
+  coap_add_option(response,
+                    COAP_OPTION_CONTENT_FORMAT,
+                    coap_encode_var_bytes(buf, COAP_MEDIATYPE_APPLICATION_OCTET_STREAM), buf);
+
+    /* calculate current time */
+    coap_ticks(&t);
+    now = my_clock_base + (t / COAP_TICKS_PER_SECOND);
+
+    temperature = randfrom(-40,100);
+    
+    strncpy ((char *)buf, (char *)&temperature,len);
+    coap_add_data(response, len, buf);
+   
 }
 
 static void
@@ -314,6 +385,15 @@ init_resources(coap_context_t *ctx) {
   coap_add_resource(ctx, r);
   time_resource = r;
 
+  r = coap_resource_init((unsigned char *)"cycles", 6, COAP_RESOURCE_FLAGS_NOTIFY_CON);
+  coap_register_handler(r, COAP_REQUEST_GET, hnd_get_cycles);
+  coap_add_resource(ctx, r);
+
+  r = coap_resource_init((unsigned char *)"temp", 4, COAP_RESOURCE_FLAGS_NOTIFY_CON);
+  coap_register_handler(r, COAP_REQUEST_GET, hnd_get_temp);
+  coap_add_resource(ctx, r); 
+
+  
 #ifndef WITHOUT_ASYNC
   r = coap_resource_init((unsigned char *)"async", 5, 0);
   coap_register_handler(r, COAP_REQUEST_GET, hnd_get_async);
