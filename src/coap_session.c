@@ -90,7 +90,8 @@ coap_make_session(coap_proto_t proto, coap_session_type_t type,
   }
 
   /* initialize message id */
-  prng((unsigned char *)&session->tx_mid, sizeof(session->tx_mid));
+  //prng((unsigned char *)&session->tx_mid, sizeof(session->tx_mid));
+  session->tx_mid = context->message_id;
 
   return session;
 }
