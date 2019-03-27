@@ -239,9 +239,13 @@ hnd_get_urand(coap_context_t  *ctx,
   coap_tick_t t;
   static char filename[]="/dev/urandom";
   static int fd;
-  static long unsigned int value;
+  static long unsigned int value = 100;
   static double val, mem_val;
   static double *mem;
+  static unsigned int time_start_f = 0;
+  static struct timespec time_start, time_end;
+  static unsigned int time_diff;
+  
   
   response->hdr->code = COAP_RESPONSE_CODE(205);
 
@@ -249,23 +253,32 @@ hnd_get_urand(coap_context_t  *ctx,
                     COAP_OPTION_CONTENT_FORMAT,
                     coap_encode_var_bytes(buf, COAP_MEDIATYPE_APPLICATION_OCTET_STREAM), buf);
 
-  if ((fd = open (filename,O_RDONLY)) < 0 ) {
-      fprintf (stderr,"Can't open %s\n",filename);
-      exit(1);
+  if (!time_start_f) {
+      clock_gettime(CLOCK_MONOTONIC, &time_start);
+      time_start_f = 1;
   }
-  mem = (double *) malloc (sizeof (double));
-  
-  read (fd, &value, sizeof (value));
-  val = (double) (value/2);
-  val = val/1e300;
-  int i = 1000000;
-  while (i--) {
-      mem_val = *mem;
-      val = val/2;
-      val += val*2;
-      if (val > 1e300) val = val/1e300;
-      *mem = val;
-  }
+  clock_gettime(CLOCK_MONOTONIC, &time_end);
+  time_diff = (((time_end.tv_sec - time_start.tv_sec)*1000000000) +
+      (time_end.tv_nsec - time_start.tv_nsec));
+  if (time_diff > 1000000000) {
+      time_start_f = 0;
+      if ((fd = open (filename,O_RDONLY)) < 0 ) {
+	  fprintf (stderr,"Can't open %s\n",filename);
+	  exit(1);
+      }
+      mem = (double *) malloc (sizeof (double));
+      read (fd, &value, sizeof (value));
+      val = (double) (value/2);
+      val = val/1e300;
+      int i = 5000;
+      while (i--) {
+	  mem_val = *mem;
+	  val = val/2;
+	  val += val*2;
+	  if (val > 1e300) val = val/1e300;
+	  *mem = val;
+      }
+  }  
   coap_add_data (response,len,(char *)&val);
   close(fd);
 }
