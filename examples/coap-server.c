@@ -240,7 +240,9 @@ hnd_get_urand(coap_context_t  *ctx,
   static char filename[]="/dev/urandom";
   static int fd;
   static long unsigned int value;
-
+  static double val, mem_val;
+  static double *mem;
+  
   response->hdr->code = COAP_RESPONSE_CODE(205);
 
   coap_add_option(response,
@@ -251,9 +253,20 @@ hnd_get_urand(coap_context_t  *ctx,
       fprintf (stderr,"Can't open %s\n",filename);
       exit(1);
   }
+  mem = (double *) malloc (sizeof (double));
+  
   read (fd, &value, sizeof (value));
-  value += (value<<1);
-  coap_add_data (response,len,(char *)&value);
+  val = (double) (value/2);
+  val = val/1e300;
+  int i = 1000000;
+  while (i--) {
+      mem_val = *mem;
+      val = val/2;
+      val += val*2;
+      if (val > 1e300) val = val/1e300;
+      *mem = val;
+  }
+  coap_add_data (response,len,(char *)&val);
   close(fd);
 }
 
